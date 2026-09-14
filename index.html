@@ -6,95 +6,58 @@
     <title>Gamer Streak Tracker</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             background-color: #121212;
             color: #ffffff;
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
+            text-align: center;
+            padding: 50px;
         }
         .card {
             background-color: #1e1e1e;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            text-align: center;
-            width: 300px;
-        }
-        .status-dot {
-            height: 12px;
-            width: 12px;
-            background-color: #bbb;
-            border-radius: 50%;
+            padding: 20px;
+            border-radius: 10px;
             display: inline-block;
-            margin-right: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        .online { background-color: #00e676; }
-        .offline { background-color: #ff5252; }
-        .streak-count {
-            font-size: 2.5em;
-            color: #00e676;
-            margin: 15px 0;
+        .streak-number {
+            font-size: 48px;
+            color: #4CAF50;
+            margin: 10px 0;
         }
-        button {
-            background-color: #0070d1;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1em;
+        .status {
+            font-size: 18px;
+            color: #00bcd4;
         }
-        button:hover { background-color: #005bb5; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Gamer Streak</h2>
-    <p><span id="dot" class="status-dot"></span><span id="status-text">جاري التحقق...</span></p>
-    
-    <div class="streak-count" id="streak-num">0</div>
-    <p>أيام الـ Streak المتواصلة 🔥</p>
+    <div class="card">
+        <h1>🎮 Gamer Streak Tracker</h1>
+        <div class="status" id="status-text">جاري التحميل...</div>
+        <div class="streak-number" id="streak-count">-</div>
+        <p id="update-text"></p>
+    </div>
 
-    <button onclick="fetchStreakData()">تحديث الآن 🔄</button>
-</div>
-
-<script>
-    // الرابط المباشر للباك إند الخاص بك على Railway
-    const API_URL = "https://gamer-streak-backend-production.up.railway.app/api/streak";
-
-    async function fetchStreakData() {
-        const statusText = document.getElementById("status-text");
-        const dot = document.getElementById("dot");
-        const streakNum = document.getElementById("streak-num");
-
-        statusText.innerText = "جاري التحميل...";
-
-        try {
-            const response = await fetch(API_URL);
-            const data = await response.json();
-
-            streakNum.innerText = data.current_streak;
-            
-            if (data.online) {
-                statusText.innerText = "متصل الان على PSN";
-                dot.className = "status-dot online";
-            } else {
-                statusText.innerText = "غير متصل";
-                dot.className = "status-dot offline";
+    <script>
+        async function loadStreakData() {
+            try {
+                // سحب البيانات مباشرة من ملف data.json اللي في نفس المشروع على جيت هب
+                const response = await fetch('data.json?' + new Date().getTime()); // لمنع التخزين المؤقت (Cache)
+                const data = await response.json();
+                
+                document.getElementById('streak-count').innerText = data.current_streak + " يوم";
+                document.getElementById('status-text').innerText = data.online ? "🟢 متصل الآن" : "🔴 غير متصل";
+                document.getElementById('update-text').innerText = "آخر تحديث: " + data.last_updated;
+            } catch (error) {
+                console.error("خطأ في تحميل البيانات:", error);
+                document.getElementById('status-text').innerText = "⚠️ فشل تحميل البيانات";
             }
-        } catch (error) {
-            console.error("Error fetching data:", error);
-            statusText.innerText = "فشل الاتصال بالسيرفر";
-            dot.className = "status-dot offline";
         }
-    }
 
-    fetchStreakData();
-</script>
+        // تشغيل الدالة أول ما الصفحة تفتح
+        loadStreakData();
+    </script>
 
 </body>
 </html>
