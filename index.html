@@ -3,29 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gamer Streak Tracker</title>
+    <title>Gamer Streak Tracker - Duos</title>
+    <!-- مكتبة Supabase للاتصال السحابي المباشر -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #121212;
             color: #ffffff;
             text-align: center;
-            padding: 50px;
+            padding: 40px;
         }
         .card {
             background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 30px;
+            border-radius: 15px;
             display: inline-block;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            max-width: 400px;
+            width: 100%;
         }
         .streak-number {
-            font-size: 48px;
+            font-size: 50px;
             color: #4CAF50;
-            margin: 10px 0;
+            margin: 15px 0;
         }
-        .status {
-            font-size: 18px;
+        .status-box {
+            margin: 15px 0;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: 0.2s;
+        }
+        button:hover {
+            background-color: #f57c00;
+        }
+        button.checked {
+            background-color: #4CAF50;
+        }
+        .message {
+            margin-top: 15px;
+            font-size: 15px;
             color: #00bcd4;
         }
     </style>
@@ -33,30 +63,111 @@
 <body>
 
     <div class="card">
-        <h1>🎮 Gamer Streak Tracker</h1>
-        <div class="status" id="status-text">جاري التحميل...</div>
-        <div class="streak-number" id="streak-count">-</div>
-        <p id="update-text"></p>
+        <h1>🎮 Duo Streak Tracker</h1>
+        <div class="streak-number" id="streak-count">0 يوم</div>
+        
+        <div class="status-box">
+            <p id="youssef-status">👤 يوسف: لسه ما دمش ❌</p>
+            <p id="friend-status">👤 صاحبك: لسه ما دمش ❌</p>
+        </div>
+
+        <!-- زرار يوسف -->
+        <button id="youssef-btn" onclick="toggleCheck('youssef')">سجل حضورك يا يوسف</button>
+        
+        <div class="message" id="congrats-msg"></div>
     </div>
 
     <script>
-        async function loadStreakData() {
-            try {
-                // سحب البيانات مباشرة من ملف data.json اللي في نفس المشروع على جيت هب
-                const response = await fetch('data.json?' + new Date().getTime()); // لمنع التخزين المؤقت (Cache)
-                const data = await response.json();
-                
-                document.getElementById('streak-count').innerText = data.current_streak + " يوم";
-                document.getElementById('status-text').innerText = data.online ? "🟢 متصل الآن" : "🔴 غير متصل";
-                document.getElementById('update-text').innerText = "آخر تحديث: " + data.last_updated;
-            } catch (error) {
-                console.error("خطأ في تحميل البيانات:", error);
-                document.getElementById('status-text').innerText = "⚠️ فشل تحميل البيانات";
+        // إعدادات الاتصال بـ Supabase (تم دمج بياناتك هنا مباشرة)
+        const SUPABASE_URL = 'https://navofdgrmdigluaucxvx.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_leq-S1NSvUZ8naYj65aMbg_OMcj6Tbi';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function fetchData() {
+            const { data, error } = await supabase
+                .from('streak_data')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (error) {
+                console.error('خطأ في جلب البيانات:', error);
+                return;
+            }
+
+            updateUI(data);
+        }
+
+        function updateUI(data) {
+            document.getElementById('streak-count').innerText = data.current_streak + " يوم";
+            
+            const youssefBtn = document.getElementById('youssef-btn');
+            if (data.youssef_checked) {
+                document.getElementById('youssef-status').innerText = '👤 يوسف: سجل حضوره اليومي ✅';
+                youssefBtn.innerText = 'تم تسجيل حضورك ✔️';
+                youssefBtn.classList.add('checked');
+            } else {
+                document.getElementById('youssef-status').innerText = '👤 يوسف: لسه ما دمش ❌';
+                youssefBtn.innerText = 'سجل حضورك يا يوسف';
+                youssefBtn.classList.remove('checked');
+            }
+
+            if (data.friend_checked) {
+                document.getElementById('friend-status').innerText = '👤 صاحبك: سجل حضوره اليومي ✅';
+            } else {
+                document.getElementById('friend-status').innerText = '👤 صاحبك: لسه ما دمش ❌';
+            }
+
+            // فحص إنجاز الأصدقاء الأقوياء (أكثر من 5000)
+            const msg = document.getElementById('congrats-msg');
+            if (data.current_streak >= 5000) {
+                msg.innerText = "🔥 أنتم أصدقاء أسطوريون جداً! تجاوزتم الـ 5000 ستريك!";
+            } else if (data.youssef_checked && data.friend_checked) {
+                msg.innerText = "⭐ ممتاز! أنتم الاثنين سجلتم اليوم، الستريك في أمان!";
+            } else {
+                msg.innerText = "⏳ في انتظار تسجيل الطرفين لتثبيت اليوم.";
             }
         }
 
-        // تشغيل الدالة أول ما الصفحة تفتح
-        loadStreakData();
+        async function toggleCheck(user) {
+            // جلب البيانات الحالية أولاً
+            const { data, error } = await supabase
+                .from('streak_data')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (error) return;
+
+            let newYoussefState = data.youssef_checked;
+            if (user === 'youssef') {
+                newYoussefState = !data.youssef_checked;
+            }
+
+            let newStreak = data.current_streak;
+            // لو الطرفين بقوا صح، نزود الستريك
+            if (newYoussefState && data.friend_checked && !data.youssef_checked) {
+                newStreak += 1;
+            }
+
+            const { error: updateError } = await supabase
+                .from('streak_data')
+                .update({ 
+                    youssef_checked: newYoussefState,
+                    current_streak: newStreak
+                })
+                .eq('id', 1);
+
+            if (!updateError) {
+                fetchData();
+            }
+        }
+
+        // تحديث تلقائي كل 3 ثواني عشان تشوف صاحبك لو داس لحظياً!
+        setInterval(fetchData, 3000);
+
+        // جلب البيانات أول ما الصفحة تفتح
+        fetchData();
     </script>
 
 </body>
