@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamer Streak Tracker</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 300px;
+        }
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            background-color: #bbb;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .online { background-color: #00e676; }
+        .offline { background-color: #ff5252; }
+        .streak-count {
+            font-size: 2.5em;
+            color: #00e676;
+            margin: 15px 0;
+        }
+        button {
+            background-color: #0070d1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        button:hover { background-color: #005bb5; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Gamer Streak</h2>
+    <p><span id="dot" class="status-dot"></span><span id="status-text">جاري التحقق...</span></p>
+    
+    <div class="streak-count" id="streak-num">0</div>
+    <p>أيام الـ Streak المتواصلة 🔥</p>
+
+    <button onclick="fetchStreakData()">تحديث الآن 🔄</button>
+</div>
+
+<script>
+    // رابط الباك إند المرفوع على Railway
+    const API_URL = "https://gamer-streak-backend-production.up.railway.app/api/streak";
+
+    async function fetchStreakData() {
+        const statusText = document.getElementById("status-text");
+        const dot = document.getElementById("dot");
+        const streakNum = document.getElementById("streak-num");
+
+        statusText.innerText = "جاري التحميل...";
+
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+
+            // تحديث الواجهة بناءً على البيانات القادمة من الباك إند
+            streakNum.innerText = data.current_streak;
+            
+            if (data.online) {
+                statusText.innerText = "متصل الان على PSN";
+                dot.className = "status-dot online";
+            } else {
+                statusText.innerText = "غير متصل";
+                dot.className = "status-dot offline";
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            statusText.innerText = "فشل الاتصال بالسيرفر";
+            dot.className = "status-dot offline";
+        }
+    }
+
+    // جلب البيانات فور فتح الصفحة
+    fetchStreakData();
+</script>
+
+</body>
+</html>
