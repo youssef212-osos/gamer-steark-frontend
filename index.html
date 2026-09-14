@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gamer Streak Tracker - Duos</title>
-    <!-- مكتبة Supabase للاتصال السحابي المباشر -->
+    <title>Gamer Streak Tracker - PSN Live</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -20,68 +19,118 @@
             border-radius: 15px;
             display: inline-block;
             box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-            max-width: 400px;
+            max-width: 450px;
             width: 100%;
         }
         .streak-number {
-            font-size: 50px;
+            font-size: 45px;
             color: #4CAF50;
             margin: 15px 0;
         }
         .status-box {
             margin: 15px 0;
-            padding: 10px;
+            padding: 12px;
             background: #2a2a2a;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
+            text-align: right;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        input {
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
         }
         button {
-            background-color: #ff9800;
+            background-color: #0070d1; /* لون بلاي ستيشن الرسمي */
             color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            margin-top: 10px;
             transition: 0.2s;
         }
         button:hover {
-            background-color: #f57c00;
+            background-color: #005fb8;
         }
-        button.checked {
+        button.active-btn {
             background-color: #4CAF50;
         }
         .message {
             margin-top: 15px;
-            font-size: 15px;
+            font-size: 14px;
             color: #00bcd4;
+        }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>🎮 Duo Streak Tracker</h1>
-        <div class="streak-number" id="streak-count">0 يوم</div>
+        <h1>🎮 PSN Streak Tracker</h1>
         
-        <div class="status-box">
-            <p id="youssef-status">👤 يوسف: لسه ما دمش ❌</p>
-            <p id="friend-status">👤 صاحبك: لسه ما دمش ❌</p>
+        <!-- قسم تسجيل الدخول بكود الـ PSN (الذي يبدأ بحرف N أو التوكن) -->
+        <div id="auth-section">
+            <p style="font-size: 14px; color: #aaa;">سجل الدخول بكود جلسة بلاي ستيشن (يبدأ بـ n...):</p>
+            <input type="text" id="psn-token-input" placeholder="أدخل كود الـ PSN هنا...">
+            <button onclick="loginWithPSN()">تسجيل الدخول</button>
         </div>
 
-        <!-- زرار يوسف -->
-        <button id="youssef-btn" onclick="toggleCheck('youssef')">سجل حضورك يا يوسف</button>
-        
-        <div class="message" id="congrats-msg"></div>
+        <!-- قسم الستريك والاتقاء (يظهر بعد تسجيل الدخول) -->
+        <div id="tracker-section" class="hidden">
+            <div class="streak-number" id="streak-count">0 دقيقة</div>
+            
+            <div class="status-box">
+                <p id="youssef-psn-status">👤 يوسف: غير متصل 🔴</p>
+                <p id="friend-psn-status">👤 صاحبك: غير متصل 🔴</p>
+            </div>
+
+            <!-- زرار التواجد الجماعي بالدقائق -->
+            <button id="presence-btn" onclick="togglePresence()">أنا جاهز للعب الآن 🎮</button>
+            
+            <div class="message" id="congrats-msg"></div>
+        </div>
     </div>
 
     <script>
-        // إعدادات الاتصال بـ Supabase (تم دمج بياناتك هنا مباشرة)
+        // إعدادات Supabase الخاصة بك
         const SUPABASE_URL = 'https://navofdgrmdigluaucxvx.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_leq-S1NSvUZ8naYj65aMbg_OMcj6Tbi';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentUser = localStorage.getItem('psn_user_name') || null;
+
+        // التحقق إذا كان المستخدم مسجل دخول من قبل على نفس الجهاز
+        window.onload = function() {
+            if (localStorage.getItem('psn_n_token')) {
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('tracker-section').classList.remove('hidden');
+                startSync();
+            }
+        };
+
+        function loginWithPSN() {
+            const token = document.getElementById('psn-token-input').value.trim();
+            if (token.startsWith('n') || token.length > 10) { // التحقق البسيط من الكود
+                localStorage.setItem('psn_n_token', token);
+                // تحديد ما إذا كان يوسف أو صاحبه بناءً على الاختيار أو افتراضياً
+                localStorage.setItem('psn_user_name', 'youssef'); 
+                
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('tracker-section').classList.remove('hidden');
+                startSync();
+            } else {
+                alert('الرجاء إدخال كود صحيح يبدأ بحرف n أو توكن صالح!');
+            }
+        }
 
         async function fetchData() {
             const { data, error } = await supabase
@@ -90,47 +139,42 @@
                 .eq('id', 1)
                 .single();
 
-            if (error) {
-                console.error('خطأ في جلب البيانات:', error);
-                return;
-            }
-
+            if (error) return;
             updateUI(data);
         }
 
         function updateUI(data) {
-            document.getElementById('streak-count').innerText = data.current_streak + " يوم";
+            document.getElementById('streak-count').innerText = data.current_streak + " دقيقة لعب";
             
-            const youssefBtn = document.getElementById('youssef-btn');
+            const btn = document.getElementById('presence-btn');
             if (data.youssef_checked) {
-                document.getElementById('youssef-status').innerText = '👤 يوسف: سجل حضوره اليومي ✅';
-                youssefBtn.innerText = 'تم تسجيل حضورك ✔️';
-                youssefBtn.classList.add('checked');
+                document.getElementById('youssef-psn-status').innerText = '👤 يوسف: متصل وجاهز للعب 🟢';
+                btn.innerText = 'أنت جاهز (متصل) ✔️';
+                btn.classList.add('active-btn');
             } else {
-                document.getElementById('youssef-status').innerText = '👤 يوسف: لسه ما دمش ❌';
-                youssefBtn.innerText = 'سجل حضورك يا يوسف';
-                youssefBtn.classList.remove('checked');
+                document.getElementById('youssef-psn-status').innerText = '👤 يوسف: غير متصل 🔴';
+                btn.innerText = 'أنا جاهز للعب الآن 🎮';
+                btn.classList.remove('active-btn');
             }
 
             if (data.friend_checked) {
-                document.getElementById('friend-status').innerText = '👤 صاحبك: سجل حضوره اليومي ✅';
+                document.getElementById('friend-psn-status').innerText = '👤 صاحبك: متصل وجاهز للعب 🟢';
             } else {
-                document.getElementById('friend-status').innerText = '👤 صاحبك: لسه ما دمش ❌';
+                document.getElementById('friend-psn-status').innerText = '👤 صاحبك: غير متصل 🔴';
             }
 
-            // فحص إنجاز الأصدقاء الأقوياء (أكثر من 5000)
+            // فحص الإنجاز لو عدى أرقام كبيرة (مثلاً 5000 دقيقة)
             const msg = document.getElementById('congrats-msg');
             if (data.current_streak >= 5000) {
-                msg.innerText = "🔥 أنتم أصدقاء أسطوريون جداً! تجاوزتم الـ 5000 ستريك!";
+                msg.innerText = "🔥 أسطوريون! تجاوزتم 5000 دقيقة لعب جماعي!";
             } else if (data.youssef_checked && data.friend_checked) {
-                msg.innerText = "⭐ ممتاز! أنتم الاثنين سجلتم اليوم، الستريك في أمان!";
+                msg.innerText = "⭐ أنتم الاثنين اونلاين الآن! العداد بيحسب الدقائق لصالحكُم!";
             } else {
-                msg.innerText = "⏳ في انتظار تسجيل الطرفين لتثبيت اليوم.";
+                msg.innerText = "⏳ في انتظار دخول الطرفين لتشغيل عداد الدقائق.";
             }
         }
 
-        async function toggleCheck(user) {
-            // جلب البيانات الحالية أولاً
+        async function togglePresence() {
             const { data, error } = await supabase
                 .from('streak_data')
                 .select('*')
@@ -139,35 +183,30 @@
 
             if (error) return;
 
-            let newYoussefState = data.youssef_checked;
-            if (user === 'youssef') {
-                newYoussefState = !data.youssef_checked;
+            let newState = !data.youssef_checked;
+            let streak = data.current_streak;
+
+            // لو الاتنين متصلين مع بعض، نزود دقيقة في الستريك للتجربة التفاعلية
+            if (newState && data.friend_checked) {
+                streak += 1;
             }
 
-            let newStreak = data.current_streak;
-            // لو الطرفين بقوا صح، نزود الستريك
-            if (newYoussefState && data.friend_checked && !data.youssef_checked) {
-                newStreak += 1;
-            }
-
-            const { error: updateError } = await supabase
+            await supabase
                 .from('streak_data')
                 .update({ 
-                    youssef_checked: newYoussefState,
-                    current_streak: newStreak
+                    youssef_checked: newState,
+                    current_streak: streak
                 })
                 .eq('id', 1);
 
-            if (!updateError) {
-                fetchData();
-            }
+            fetchData();
         }
 
-        // تحديث تلقائي كل 3 ثواني عشان تشوف صاحبك لو داس لحظياً!
-        setInterval(fetchData, 3000);
-
-        // جلب البيانات أول ما الصفحة تفتح
-        fetchData();
+        function startSync() {
+            fetchData();
+            // تحديث تلقائي كل دقيقة أو 3 ثواني عشان تتابعوا بعض لحظياً
+            setInterval(fetchData, 3000);
+        }
     </script>
 
 </body>
