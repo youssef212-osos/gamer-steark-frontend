@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gamer Streak Tracker - PSN Live</title>
+    <title>PSN Auto Streak Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -23,16 +23,16 @@
             width: 100%;
         }
         .streak-number {
-            font-size: 45px;
+            font-size: 50px;
             color: #4CAF50;
             margin: 15px 0;
         }
         .status-box {
             margin: 15px 0;
-            padding: 12px;
+            padding: 15px;
             background: #2a2a2a;
             border-radius: 8px;
-            font-size: 15px;
+            font-size: 16px;
             text-align: right;
         }
         input, button {
@@ -50,21 +50,17 @@
             border: 1px solid #444;
         }
         button {
-            background-color: #0070d1; /* لون بلاي ستيشن الرسمي */
+            background-color: #0070d1;
             color: white;
             cursor: pointer;
             font-weight: bold;
-            transition: 0.2s;
         }
         button:hover {
             background-color: #005fb8;
         }
-        button.active-btn {
-            background-color: #4CAF50;
-        }
         .message {
             margin-top: 15px;
-            font-size: 14px;
+            font-size: 15px;
             color: #00bcd4;
         }
         .hidden {
@@ -75,137 +71,114 @@
 <body>
 
     <div class="card">
-        <h1>🎮 PSN Streak Tracker</h1>
+        <h1>🎮 PSN Auto Streak</h1>
         
-        <!-- قسم تسجيل الدخول بكود الـ PSN (الذي يبدأ بحرف N أو التوكن) -->
+        <!-- صفحة تسجيل الدخول بكود الـ PSN (الذي يبدأ بـ n) -->
         <div id="auth-section">
-            <p style="font-size: 14px; color: #aaa;">سجل الدخول بكود جلسة بلاي ستيشن (يبدأ بـ n...):</p>
-            <input type="text" id="psn-token-input" placeholder="أدخل كود الـ PSN هنا...">
-            <button onclick="loginWithPSN()">تسجيل الدخول</button>
+            <p style="font-size: 14px; color: #aaa;">أدخل كود جلسة البلاي ستيشن الخاص بك (يبدأ بـ n...):</p>
+            <input type="text" id="psn-token-input" placeholder="الصق الكود هنا...">
+            <button onclick="loginPSN()">دخول تلقائي</button>
         </div>
 
-        <!-- قسم الستريك والاتقاء (يظهر بعد تسجيل الدخول) -->
+        <!-- لوحة العداد التلقائي (تظهر فور الدخول) -->
         <div id="tracker-section" class="hidden">
             <div class="streak-number" id="streak-count">0 دقيقة</div>
             
             <div class="status-box">
-                <p id="youssef-psn-status">👤 يوسف: غير متصل 🔴</p>
-                <p id="friend-psn-status">👤 صاحبك: غير متصل 🔴</p>
+                <p id="youssef-status">👤 يوسف: جارٍ التحقق من الـ PSN...</p>
+                <p id="friend-status">👤 صديقك: غير متصل 🔴</p>
             </div>
 
-            <!-- زرار التواجد الجماعي بالدقائق -->
-            <button id="presence-btn" onclick="togglePresence()">أنا جاهز للعب الآن 🎮</button>
-            
-            <div class="message" id="congrats-msg"></div>
+            <div class="message" id="congrats-msg">جارٍ مزامنة الجلسة...</div>
         </div>
     </div>
 
     <script>
-        // إعدادات Supabase الخاصة بك
         const SUPABASE_URL = 'https://navofdgrmdigluaucxvx.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_leq-S1NSvUZ8naYj65aMbg_OMcj6Tbi';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let currentUser = localStorage.getItem('psn_user_name') || null;
-
-        // التحقق إذا كان المستخدم مسجل دخول من قبل على نفس الجهاز
         window.onload = function() {
+            // لو مسجل دخول قبل كده بنفس الموبايل/الجهاز، يدخل لوحده فورا من غير ما يكتب الكود تاني
             if (localStorage.getItem('psn_n_token')) {
-                document.getElementById('auth-section').classList.add('hidden');
-                document.getElementById('tracker-section').classList.remove('hidden');
-                startSync();
+                showTracker();
             }
         };
 
-        function loginWithPSN() {
+        function loginPSN() {
             const token = document.getElementById('psn-token-input').value.trim();
-            if (token.startsWith('n') || token.length > 10) { // التحقق البسيط من الكود
+            if (token.startsWith('n') || token.length > 10) {
                 localStorage.setItem('psn_n_token', token);
-                // تحديد ما إذا كان يوسف أو صاحبه بناءً على الاختيار أو افتراضياً
-                localStorage.setItem('psn_user_name', 'youssef'); 
-                
-                document.getElementById('auth-section').classList.add('hidden');
-                document.getElementById('tracker-section').classList.remove('hidden');
-                startSync();
+                showTracker();
             } else {
-                alert('الرجاء إدخال كود صحيح يبدأ بحرف n أو توكن صالح!');
+                alert('الرجاء إدخال كود صالح يبدأ بحرف n');
             }
         }
 
-        async function fetchData() {
-            const { data, error } = await supabase
-                .from('streak_data')
-                .select('*')
-                .eq('id', 1)
-                .single();
-
-            if (error) return;
-            updateUI(data);
-        }
-
-        function updateUI(data) {
-            document.getElementById('streak-count').innerText = data.current_streak + " دقيقة لعب";
+        function showTracker() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('tracker-section').classList.remove('hidden');
             
-            const btn = document.getElementById('presence-btn');
-            if (data.youssef_checked) {
-                document.getElementById('youssef-psn-status').innerText = '👤 يوسف: متصل وجاهز للعب 🟢';
-                btn.innerText = 'أنت جاهز (متصل) ✔️';
-                btn.classList.add('active-btn');
-            } else {
-                document.getElementById('youssef-psn-status').innerText = '👤 يوسف: غير متصل 🔴';
-                btn.innerText = 'أنا جاهز للعب الآن 🎮';
-                btn.classList.remove('active-btn');
-            }
-
-            if (data.friend_checked) {
-                document.getElementById('friend-psn-status').innerText = '👤 صاحبك: متصل وجاهز للعب 🟢';
-            } else {
-                document.getElementById('friend-psn-status').innerText = '👤 صاحبك: غير متصل 🔴';
-            }
-
-            // فحص الإنجاز لو عدى أرقام كبيرة (مثلاً 5000 دقيقة)
-            const msg = document.getElementById('congrats-msg');
-            if (data.current_streak >= 5000) {
-                msg.innerText = "🔥 أسطوريون! تجاوزتم 5000 دقيقة لعب جماعي!";
-            } else if (data.youssef_checked && data.friend_checked) {
-                msg.innerText = "⭐ أنتم الاثنين اونلاين الآن! العداد بيحسب الدقائق لصالحكُم!";
-            } else {
-                msg.innerText = "⏳ في انتظار دخول الطرفين لتشغيل عداد الدقائق.";
-            }
+            // بدء المزامنة التلقائية فوراً
+            syncLoop();
+            // زيادة الستريك تلقائياً كل دقيقة لو الطرفين متصلين
+            setInterval(autoIncrementStreak, 60000); 
         }
 
-        async function togglePresence() {
-            const { data, error } = await supabase
-                .from('streak_data')
-                .select('*')
-                .eq('id', 1)
-                .single();
+        async function syncLoop() {
+            updateStatusOnline(true);
+            setInterval(fetchAndUpdateUI, 3000); // تحديث الشاشة كل 3 ثواني لمتابعة صديقك لحظياً
+            fetchAndUpdateUI();
+        }
 
-            if (error) return;
-
-            let newState = !data.youssef_checked;
-            let streak = data.current_streak;
-
-            // لو الاتنين متصلين مع بعض، نزود دقيقة في الستريك للتجربة التفاعلية
-            if (newState && data.friend_checked) {
-                streak += 1;
-            }
-
+        async function updateStatusOnline(status) {
             await supabase
                 .from('streak_data')
-                .update({ 
-                    youssef_checked: newState,
-                    current_streak: streak
-                })
+                .update({ youssef_checked: status })
                 .eq('id', 1);
-
-            fetchData();
         }
 
-        function startSync() {
-            fetchData();
-            // تحديث تلقائي كل دقيقة أو 3 ثواني عشان تتابعوا بعض لحظياً
-            setInterval(fetchData, 3000);
+        async function fetchAndUpdateUI() {
+            const { data, error } = await supabase
+                .from('streak_data')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (error) return;
+
+            document.getElementById('streak-count').innerText = data.current_streak + " دقيقة";
+            
+            document.getElementById('youssef-status').innerText = data.youssef_checked ? '👤 يوسف: متصل عبر PSN 🟢' : '👤 يوسف: غير متصل 🔴';
+            document.getElementById('friend-status').innerText = data.friend_checked ? '👤 صديقك: متصل عبر PSN 🟢' : '👤 صديقك: غير متصل 🔴';
+
+            const msg = document.getElementById('congrats-msg');
+            if (data.current_streak >= 5000) {
+                msg.innerText = "🔥 أسطوريون! تجاوزتم 5000 دقيقة لعب جماعي معاً!";
+            } else if (data.youssef_checked && data.friend_checked) {
+                msg.innerText = "⭐ أنتم الاثنين اونلاين الآن! العداد يعد الدقائق تلقائياً...";
+            } else {
+                msg.innerText = "⏳ في انتظار اتصال الطرفين لتفعيل عداد الدقائق التلقائي.";
+            }
+        }
+
+        async function autoIncrementStreak() {
+            const { data, error } = await supabase
+                .from('streak_data')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (error) return;
+
+            // لو يوسف وصديقه متصلين مع بعض في نفس الدقيقة، زود الستريك تلقائياً بدقيقة واحدة
+            if (data.youssef_checked && data.friend_checked) {
+                let newStreak = data.current_streak + 1;
+                await supabase
+                    .from('streak_data')
+                    .update({ current_streak: newStreak })
+                    .eq('id', 1);
+            }
         }
     </script>
 
